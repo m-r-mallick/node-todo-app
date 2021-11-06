@@ -1,77 +1,56 @@
+const { createCustomError } = require("../errors/custom-errors");
+const { asyncWrapper } = require("../middlewares/asyncWrapper");
 const Task = require("../models/Task");
 
-const getAllTasks = async (req, res) => {
-   try {
-      const tasks = await Task.find();
-      res.status(200).json({ status: "success", data: tasks });
-   } catch (error) {
-      res.status(500).json(error);
-   }
-};
+const getAllTasks = asyncWrapper(async (req, res) => {
+   const tasks = await Task.find();
+   res.status(200).json({ status: "success", data: tasks });
+});
 
-const createNewTask = async (req, res) => {
+const createNewTask = asyncWrapper(async (req, res) => {
    if (req.body) {
-      try {
-         const task = await Task.create(req.body);
-         res.status(201).json(task);
-      } catch (error) {
-         res.status(500).json(error);
-      }
+      const task = await Task.create(req.body);
+      res.status(201).json(task);
    }
-};
+});
 
-const getTaskById = async (req, res) => {
+const getTaskById = asyncWrapper(async (req, res, next) => {
    if (req.params.id) {
-      try {
-         const task = await Task.findOne({ _id: req.params.id }).exec();
-         if (task) {
-            return res.status(200).json({ status: "success", data: task });
-         } else {
-            return res.status(404).send("Task not found!");
-         }
-      } catch (error) {
-         return res.status(500).json(error);
-      }
-   }
-   res.status(500).send("No params provided");
-};
-
-const updateTask = async (req, res) => {
-   if (req.params.id) {
-      try {
-         const task = await Task.findOneAndUpdate(
-            { _id: req.params.id },
-            req.body,
-            {
-               new: true,
-               runValidators: true,
-            }
-         );
-         if (!task) {
-            return res.status(404).send("Task Not Found!");
-         }
+      const task = await Task.findOne({ _id: req.params.id }).exec();
+      if (task) {
          return res.status(200).json({ status: "success", data: task });
-      } catch (error) {
-         return res.status(500).json(error);
+      } else {
+         return next(createCustomError("Not Found", 404));
       }
    }
-   res.status(404).send("No params provided");
-};
+});
 
-const deleteTask = async (req, res) => {
+const updateTask = asyncWrapper(async (req, res, next) => {
    if (req.params.id) {
-      try {
-         const task = await Task.findByIdAndDelete({ _id: req.params.id });
-         if (!task) {
-            return res.status(404).send("No Task Found!");
+      const task = await Task.findOneAndUpdate(
+         { _id: req.params.id },
+         req.body,
+         {
+            new: true,
+            runValidators: true,
          }
-         return res.status(200).json({ status: "success", data: task });
-      } catch (error) {
-         res.status(500).json(error);
+      );
+      if (!task) {
+         return next(createCustomError("Not Found", 404));
       }
+      return res.status(200).json({ status: "success", data: task });
    }
-   res.status(404).send("No params provided");
-};
+});
+
+const deleteTask = asyncWrapper(async (req, res, next) => {
+   if (req.params.id) {
+      const task = await Task.findByIdAndDelete({ _id: req.params.id });
+      if (!task) {
+         return next(createCustomError("Not Found", 404));
+      }
+      return res.status(200).json({ status: "success", data: task });
+   }
+});
 
 module.exports = {
    getAllTasks,
